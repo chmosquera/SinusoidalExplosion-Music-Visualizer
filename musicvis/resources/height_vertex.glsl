@@ -21,6 +21,7 @@ void main()
 	float baseheight = texture(tex2, texcoords*10).r;
 
 	float audioheight = texture(tex, vec2(texcoords.y,texcoords.x)).r;
+	//float audioheight_scale = pow(2, audioheight);
 	//height *= 50.0-5.0;
 
 

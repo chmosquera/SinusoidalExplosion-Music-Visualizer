@@ -38,6 +38,8 @@ BYTE texels[TEXSIZE*TEXSIZE*4];
 int renderstate = 1;//2..grid
 shared_ptr<Shape> sky_sphere, shape;
 
+vector<float> fftd_vector = vector<float>(30);
+
 
 fftw_complex * fft(int &length)
 {
@@ -89,25 +91,43 @@ void write_to_tex(GLuint texturebuf,int resx,int resy)
 	float erg = sin(arg) + 1;
 	erg *= 100;
 	int y = 0;
-	fftw_complex *outfft = fft(length);
+	fftw_complex *outfft = fft(length);				// array 
+
+	// ADDED
+	//cout << "size: " << outfft.size() << endl;
+	//cout << "low: "  << outfft[10] << "	high: " << outfft[100] << endl;
+
+	// END
 	float fm = 0;
 	//low
-	for (int x = 0; x < resx; ++x)
+	for (int x = 0; x < resx; ++x)					// x accesses each frequency, resx depends on TEXSIZE - figure out a value for texsize 
 		{
 		if (x >= length/2)break;
-		float fftd = sqrt(outfft[x][0]* outfft[x][0]+ outfft[x][1]* outfft[x][1]);
+		float fftd = sqrt(outfft[x][0]* outfft[x][0]+ outfft[x][1]* outfft[x][1]);			/// fftd - amplitude
+		//cout << "low amp: " << fftd << endl;
 		fm = max(fm, abs(fftd));
 		BYTE oldval = texels[x * 4 + y*resx * 4 + 0];
 		texels[x * 4 + y*resx * 4 + 0] = delayfilter(oldval,(BYTE)(fftd*60.0),15);
 		texels[x * 4 + y*resx * 4 + 1] = (BYTE)erg;
 		texels[x * 4 + y*resx * 4 + 2] = (BYTE)erg;
 		texels[x * 4 + y*resx * 4 + 3] = (BYTE)erg;
-		}
+
+		// populate array of fftd values
+		fftd_vector.erase(fftd_vector.begin());		// remove first element
+		fftd_vector.push_back(fftd);				// insert new element
+
+		// test out numbers in vector of fftd
+		//for (int i = 0; i < 30; i++) {
+		//	cout << fftd_vector[i] << " ";
+		//}
+		//cout << endl;
+		}	
 	//high
 	for (int y = 0; y < resx; ++y)
 	{
 		if ((y+resx) >= length / 2)break;
 		float fftd = sqrt(outfft[y + resx][0] * outfft[y + resx][0] + outfft[y + resx][1] * outfft[y + resx][1]);
+		//cout << "high amp: " << fftd << endl;
 		fm = max(fm, abs(fftd));
 		BYTE oldval = texels[y*resx * 4 + 0];
 		texels[ y*resx * 4 + 0] = delayfilter(oldval, (BYTE)(fftd*60.0), 15);
@@ -128,8 +148,6 @@ void write_to_tex(GLuint texturebuf,int resx,int resy)
 	glBindTexture(GL_TEXTURE_2D, texturebuf);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, TEXSIZE, TEXSIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, texels);
 	glGenerateMipmap(GL_TEXTURE_2D);
-
-
 
 }
 double get_last_elapsed_time()
@@ -749,7 +767,7 @@ public:
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, HeightTex);
 		
-			//glDrawArrays(GL_TRIANGLES, 0, MESHSIZE*MESHSIZE * 6);			
+			glDrawArrays(GL_TRIANGLES, 0, MESHSIZE*MESHSIZE * 6);			
 			heightshader->unbind();
 
 		
@@ -799,19 +817,28 @@ public:
 		// update explode factor & timer
 		static float explode = 0, time = 0.0;
 		if (RESET == 1) explode = 0;
-		if (PAUSE == 0) {
-			if (REVERSE == 1) explode += 0.01;
-			else if (REVERSE == -1) explode -= 0.01;
-			time += 0.02;
+		//if (PAUSE == 0) {										// testing exploding -- commented out
+		//	if (REVERSE == 1) explode += 0.01;
+		//	else if (REVERSE == -1) explode -= 0.01;
+		//	time += 0.02;
+		//}
+		//if (explode < -0.1) explode = -0.1;
+
+		float explode_avg = 0.0;
+		for (int i = 0; i < fftd_vector.size(); i++) {
+			explode_avg += fftd_vector[i];
 		}
-		if (explode < -0.1) explode = -0.1;
+		explode_avg /= fftd_vector.size();
+		cout << explode_avg << endl;
+		explode = 100*explode_avg;
+		//cout << explode << endl;
 
 		// draw exploding object -------------------
 		// movement transition timer
 		transClock += 0.008;
 
-		cout << "time: " << time << endl;
-		// send the uniforms to the shaders
+		//cout << "time: " << time << endl;
+		// send the uniforms to the gpu
 		glUniformMatrix4fv(objprog->getUniform("P"), 1, GL_FALSE, &P[0][0]);
 		glUniformMatrix4fv(objprog->getUniform("V"), 1, GL_FALSE, &V[0][0]);
 		glUniformMatrix4fv(objprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
