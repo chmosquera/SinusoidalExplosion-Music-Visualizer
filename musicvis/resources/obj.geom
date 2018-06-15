@@ -38,7 +38,8 @@ void main() {
 		 // MAKES THE GEOMETRY OF THE OBJECT DANCE....
 		float len = sqrt(gl_in[i].gl_Position.x * gl_in[i].gl_Position.x 
 					+ gl_in[i].gl_Position.z * gl_in[i].gl_Position.z);
-		float fxn = radius * intensity * sin(time * 2.0 + len);
+		float sinwave = (sin(time * 2.0 + len) + 1.0)/ 2.0;					// restrict sin to 0 -> 1
+		float fxn = radius * intensity * sinwave;
 		
 		// draw
 		float scale = 10.0;		// not sure what the view is so i have to scale

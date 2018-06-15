@@ -38,7 +38,15 @@ BYTE texels[TEXSIZE*TEXSIZE*4];
 int renderstate = 1;//2..grid
 shared_ptr<Shape> sky_sphere, shape;
 
-vector<float> fftd_vector = vector<float>(30);
+//vector<float> ampsList_LO = vector<float>();
+//vector<float> freqList_LO = vector<float>();
+//vector<float> ampsList_HI = vector<float>();
+//vector<float> freqList_HI = vector<float>();
+
+float ampsList_LO[TEXSIZE];
+float ampsList_HI[TEXSIZE];
+float freqList_LO[TEXSIZE];
+float freqList_HI[TEXSIZE];
 
 
 fftw_complex * fft(int &length)
@@ -92,36 +100,27 @@ void write_to_tex(GLuint texturebuf,int resx,int resy)
 	erg *= 100;
 	int y = 0;
 	fftw_complex *outfft = fft(length);				// array 
-
-	// ADDED
-	//cout << "size: " << outfft.size() << endl;
-	//cout << "low: "  << outfft[10] << "	high: " << outfft[100] << endl;
-
-	// END
 	float fm = 0;
+
+	float dataSize = resx;
+
 	//low
 	for (int x = 0; x < resx; ++x)					// x accesses each frequency, resx depends on TEXSIZE - figure out a value for texsize 
-		{
-		if (x >= length/2)break;
-		float fftd = sqrt(outfft[x][0]* outfft[x][0]+ outfft[x][1]* outfft[x][1]);			/// fftd - amplitude
-		//cout << "low amp: " << fftd << endl;
-		fm = max(fm, abs(fftd));
-		BYTE oldval = texels[x * 4 + y*resx * 4 + 0];
-		texels[x * 4 + y*resx * 4 + 0] = delayfilter(oldval,(BYTE)(fftd*60.0),15);
-		texels[x * 4 + y*resx * 4 + 1] = (BYTE)erg;
-		texels[x * 4 + y*resx * 4 + 2] = (BYTE)erg;
-		texels[x * 4 + y*resx * 4 + 3] = (BYTE)erg;
+	{
+		if (x >= length / 2)break;
+		float fftd = sqrt(outfft[x][0] * outfft[x][0] + outfft[x][1] * outfft[x][1]);			/// fftd - amplitude
+		fm = max(fm, abs(fftd));							// what're they doing with fm?
+		BYTE oldval = texels[x * 4 + y * resx * 4 + 0];
+		texels[x * 4 + y * resx * 4 + 0] = delayfilter(oldval, (BYTE)(fftd*60.0), 15);
+		texels[x * 4 + y * resx * 4 + 1] = (BYTE)erg;
+		texels[x * 4 + y * resx * 4 + 2] = (BYTE)erg;
+		texels[x * 4 + y * resx * 4 + 3] = (BYTE)erg;
 
-		// populate array of fftd values
-		fftd_vector.erase(fftd_vector.begin());		// remove first element
-		fftd_vector.push_back(fftd);				// insert new element
+		// populate array of amplitudes && frequencies
+			ampsList_LO[x] = fftd;				
+			freqList_LO[x] = outfft[x][0];
+	}
 
-		// test out numbers in vector of fftd
-		//for (int i = 0; i < 30; i++) {
-		//	cout << fftd_vector[i] << " ";
-		//}
-		//cout << endl;
-		}	
 	//high
 	for (int y = 0; y < resx; ++y)
 	{
@@ -134,15 +133,22 @@ void write_to_tex(GLuint texturebuf,int resx,int resy)
 		texels[ y*resx * 4 + 1] = (BYTE)erg;
 		texels[ y*resx * 4 + 2] = (BYTE)erg;
 		texels[ y*resx * 4 + 3] = (BYTE)erg;
+
+		//// populate array of high amplitudes && high frequencies
+		ampsList_HI[y] = fm;
+
+		freqList_HI[y] = outfft[y + resx][0];
+		
+
 	}
 	
-	for (int y = 1; y <resy; y++)
-		for (int x = 1; x < resx; ++x)
-			{
+	for (int y = 1; y < resy; y++) {			// what does erg do?
+		for (int x = 1; x < resx; ++x) {
 			int erg = (int)texels[(y - 1)*resx * 4] + (int)texels[x * 4];
 			erg /= 3;
-			texels[x * 4 + y*resx * 4] = erg;
-			}
+			texels[x * 4 + y * resx * 4] = erg;
+		}
+	}
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texturebuf);
@@ -240,79 +246,26 @@ public:
 	//float initPos[2], finalPos[2];
 	glm::vec2 finalPos = glm::vec2(0.0);
 	glm::vec2 initPos = glm::vec2(0.0);
-	float transClock = 0;
 
 	void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 	{
-		if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-		{
-			glfwSetWindowShouldClose(window, GL_TRUE);
-		}
-		
-		if (key == GLFW_KEY_W && action == GLFW_PRESS)
-		{
-			mycam.w = 1;
-		}
-		if (key == GLFW_KEY_W && action == GLFW_RELEASE)
-		{
-			mycam.w = 0;
-		}
-		if (key == GLFW_KEY_S && action == GLFW_PRESS)
-		{
-			mycam.s = 1;
-		}
-		if (key == GLFW_KEY_S && action == GLFW_RELEASE)
-		{
-			mycam.s = 0;
-		}
-		if (key == GLFW_KEY_A && action == GLFW_PRESS)
-		{
-			mycam.a = 1;
-		}
-		if (key == GLFW_KEY_A && action == GLFW_RELEASE)
-		{
-			mycam.a = 0;
-		}
-		if (key == GLFW_KEY_D && action == GLFW_PRESS)
-		{
-			mycam.d = 1;
-		}
-		if (key == GLFW_KEY_D && action == GLFW_RELEASE)
-		{
-			mycam.d = 0;
-		}
-		if (key == GLFW_KEY_Q && action == GLFW_PRESS)
-		{
-			mycam.q = 1;
-		}
-		if (key == GLFW_KEY_Q && action == GLFW_RELEASE)
-		{
-			mycam.q = 0;
-		}
-		if (key == GLFW_KEY_E && action == GLFW_PRESS)
-		{
-			mycam.e = 1;
-		}
-		if (key == GLFW_KEY_E && action == GLFW_RELEASE)
-		{
-			mycam.e = 0;
-		}
-		if (key == GLFW_KEY_Z && action == GLFW_PRESS)
-		{
-			mycam.z = 1;
-		}
-		if (key == GLFW_KEY_Z && action == GLFW_RELEASE)
-		{
-			mycam.z = 0;
-		}
-		if (key == GLFW_KEY_C && action == GLFW_PRESS)
-		{
-			mycam.c = 1;
-		}
-		if (key == GLFW_KEY_C && action == GLFW_RELEASE)
-		{
-			mycam.c = 0;
-		}
+		if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) glfwSetWindowShouldClose(window, GL_TRUE);
+		if (key == GLFW_KEY_W && action == GLFW_PRESS) mycam.w = 1;
+		if (key == GLFW_KEY_W && action == GLFW_RELEASE) mycam.w = 0;
+		if (key == GLFW_KEY_S && action == GLFW_PRESS)mycam.s = 1;
+		if (key == GLFW_KEY_S && action == GLFW_RELEASE) mycam.s = 0;
+		if (key == GLFW_KEY_A && action == GLFW_PRESS) mycam.a = 1;
+		if (key == GLFW_KEY_A && action == GLFW_RELEASE) mycam.a = 0;
+		if (key == GLFW_KEY_D && action == GLFW_PRESS)mycam.d = 1;
+		if (key == GLFW_KEY_D && action == GLFW_RELEASE)mycam.d = 0;
+		if (key == GLFW_KEY_Q && action == GLFW_PRESS)mycam.q = 1;
+		if (key == GLFW_KEY_Q && action == GLFW_RELEASE) mycam.q = 0;
+		if (key == GLFW_KEY_E && action == GLFW_PRESS) mycam.e = 1;
+		if (key == GLFW_KEY_E && action == GLFW_RELEASE) mycam.e = 0;
+		if (key == GLFW_KEY_Z && action == GLFW_PRESS)mycam.z = 1;
+		if (key == GLFW_KEY_Z && action == GLFW_RELEASE)mycam.z = 0;
+		if (key == GLFW_KEY_C && action == GLFW_PRESS)mycam.c = 1;
+		if (key == GLFW_KEY_C && action == GLFW_RELEASE)mycam.c = 0;
 		if (key == GLFW_KEY_R && action == GLFW_PRESS) RESET = !RESET;
 		if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE)
 		{
@@ -356,8 +309,6 @@ public:
 
 			finalPos.x = p2wX(x, width);
 			finalPos.y = p2wY(y, height);
-
-			transClock = 0;
 		}
 	}
 
@@ -577,20 +528,18 @@ public:
 	//General OGL initialization - set OGL state here
 	void init(const std::string& resourceDirectory)
 	{
-		
-
 		GLSL::checkVersion();
 
 		// Set background color.
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-		// Enable z-buffer test.
-		glEnable(GL_DEPTH_TEST);
+		
+		glEnable(GL_DEPTH_TEST); // Enable z-buffer test.
+
 		// Initialize the GLSL program.
 		skyprog = std::make_shared<Program>();
 		skyprog->setVerbose(true);
 		skyprog->setShaderNames(resourceDirectory + "/sky_vertex.glsl", resourceDirectory + "/sky_fragment.glsl");
-		if (!skyprog->init())
-		{
+		if (!skyprog->init()) {
 			std::cerr << "One or more shaders failed to compile... exiting!" << std::endl;
 			exit(1);
 		}
@@ -670,7 +619,6 @@ public:
 		objprog->addUniform("camPos");
 		objprog->addUniform("explode");
 		objprog->addUniform("time");
-		objprog->addUniform("transClock");
 		objprog->addUniform("pointA");
 		objprog->addUniform("pointB");
 		
@@ -700,10 +648,7 @@ public:
 		glClearColor(0.8f, 0.8f, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		// Create the matrix stacks - please leave these alone for now
-		
-		glm::mat4 V, M, P;
-		
+		glm::mat4 V, M, P;		
 		V = mycam.process(frametime);
 		M = glm::mat4(1);
 		P = glm::perspective((float)(3.14159 / 4.), (float)((float)width/ (float)height), 0.01f, 100000.0f); 
@@ -723,9 +668,6 @@ public:
 
 		// Draw sky sphere
 		skyprog->bind();
-
-		
-		//send the matrices to the shaders
 		glUniformMatrix4fv(prog->getUniform("P"), 1, GL_FALSE, &P[0][0]);				// why are we sending to prog?
 		glUniformMatrix4fv(prog->getUniform("V"), 1, GL_FALSE, &V[0][0]);
 		glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
@@ -794,7 +736,6 @@ public:
 			glUniform3fv(linesshader->getUniform("bgcolor"), 1, &bg[0]);
 
 			glBindVertexArray(VertexArrayID);
-			//
 			glActiveTexture(GL_TEXTURE0);
 
 			//glBindTexture(GL_TEXTURE_2D, HeightTex);
@@ -814,28 +755,38 @@ public:
 
 		objprog->bind();
 
-		// update explode factor & timer
-		static float explode = 0, time = 0.0;
-		if (RESET == 1) explode = 0;
-		//if (PAUSE == 0) {										// testing exploding -- commented out
-		//	if (REVERSE == 1) explode += 0.01;
-		//	else if (REVERSE == -1) explode -= 0.01;
-		//	time += 0.02;
-		//}
-		//if (explode < -0.1) explode = -0.1;
+		// time affects speed of sin wave - frequency
+		static float time = 0.0;
+		//time += frametime;
 
-		float explode_avg = 0.0;
-		for (int i = 0; i < fftd_vector.size(); i++) {
-			explode_avg += fftd_vector[i];
+		// frequency
+		float freq_avg = 0;
+		for (int i = 0; i < sizeof(freqList_LO)/sizeof(*freqList_LO); i++) {
+			freq_avg += freqList_LO[i];
 		}
-		explode_avg /= fftd_vector.size();
-		cout << explode_avg << endl;
-		explode = 100*explode_avg;
-		//cout << explode << endl;
+		freq_avg /= sizeof(freqList_LO) / sizeof(*freqList_LO);
+		cout << freq_avg << endl;
+		//freq_avg *= 10;
+		if (sizeof(freqList_LO) / sizeof(*freqList_LO) >= sizeof(freqList_LO) / sizeof(*freqList_LO) - 1)		// make sure there are frequencies in here
+			time += freq_avg * frametime * 5.0;
+		//time += 0.02;
 
-		// draw exploding object -------------------
-		// movement transition timer
-		transClock += 0.008;
+
+		// explode affects amplitude
+		float explode = 0.0;
+		for (int i = 0; i < sizeof(ampsList_LO)/sizeof(*ampsList_LO); i++) {			// hardcoded 10 -- trying to figure out what size
+			explode += ampsList_LO[i];
+		}
+		explode /= sizeof(ampsList_LO) / sizeof(*ampsList_LO);						// average --> smoother explosion transitions
+		explode *= 10;
+		// delay filter
+		static float oldexplode = 0;
+		float actualexplode = oldexplode + (explode - oldexplode) * .6;
+		//actualexplode = max(actualexplode, explode);
+		oldexplode = actualexplode;
+		explode = actualexplode;
+		//explode = max(explode, 1.0);
+		cout << "explode: " << explode << endl;
 
 		//cout << "time: " << time << endl;
 		// send the uniforms to the gpu
@@ -844,9 +795,10 @@ public:
 		glUniformMatrix4fv(objprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 		glUniform3fv(objprog->getUniform("camoff"), 1, &offset[0]);
 		glUniform3fv(objprog->getUniform("campos"), 1, &mycam.pos[0]);
+//		glUniform1f(objprog->getUniform("explode"), explode);
+		//explode = 3.0;
 		glUniform1f(objprog->getUniform("explode"), explode);
 		glUniform1f(objprog->getUniform("time"), time);
-		glUniform1f(objprog->getUniform("transClock"), transClock);
 
 		shape->draw(objprog, false);
 
