@@ -18,7 +18,7 @@ void main()
 	float t=1./1000.;
 	texcoords -= vec2(camoff.x,camoff.z)*t;
 
-	float baseheight = texture(tex2, texcoords*10).r;
+	float baseheight = texture(tex2, texcoords*1).r;
 
 	float audioheight = texture(tex, vec2(texcoords.y,texcoords.x)).r;
 	//float audioheight_scale = pow(2, audioheight);
