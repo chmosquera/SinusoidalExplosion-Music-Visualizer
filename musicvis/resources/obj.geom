@@ -10,6 +10,7 @@ uniform vec2 pointA;
 uniform vec2 pointB;
 uniform float transClock;
 uniform float explode;
+uniform float freq;
 uniform float time;
 
 in vec3 vcolor[];
@@ -28,7 +29,6 @@ void main() {
 	vec3 ac = gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz;
 	vec3 normal = normalize(cross(ac, ab));
 
-	float radius = 0.5, intensity = 1.0;
 	// DRAW whole obj
 	for (int i = 0; i < gl_in.length(); i++){
 
@@ -38,8 +38,11 @@ void main() {
 		 // MAKES THE GEOMETRY OF THE OBJECT DANCE....
 		float len = sqrt(gl_in[i].gl_Position.x * gl_in[i].gl_Position.x 
 					+ gl_in[i].gl_Position.z * gl_in[i].gl_Position.z);
-		float sinwave = (sin(time * 2.0 + len) + 1.0)/ 2.0;					// restrict sin to 0 -> 1
-		float fxn = radius * intensity * sinwave;
+
+		float sinwave = abs(sin( time + (10.0*freq)  + len));					// play with * vs. +	
+		//sinwave = freq * len;
+		float fxn = pow(sinwave, 1.0);		// what does changing the power do? has some type of rhythm
+											// 1 -> 100 :: slow -> fast
 		
 		// draw
 		float scale = 10.0;		// not sure what the view is so i have to scale

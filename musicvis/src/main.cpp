@@ -134,9 +134,8 @@ void write_to_tex(GLuint texturebuf,int resx,int resy)
 		texels[ y*resx * 4 + 2] = (BYTE)erg;
 		texels[ y*resx * 4 + 3] = (BYTE)erg;
 
-		//// populate array of high amplitudes && high frequencies
+		// populate array of high amplitudes && high frequencies
 		ampsList_HI[y] = fm;
-
 		freqList_HI[y] = outfft[y + resx][0];
 		
 
@@ -618,6 +617,7 @@ public:
 		//objprog->addUniform("camoff");
 		objprog->addUniform("camPos");
 		objprog->addUniform("explode");
+		objprog->addUniform("freq");
 		objprog->addUniform("time");
 		objprog->addUniform("pointA");
 		objprog->addUniform("pointB");
@@ -750,26 +750,41 @@ public:
 
 		
 		// all obj transformations
-		glm::mat4  TransObj = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -10));
+		glm::mat4  TransObj = glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 0.0f, -10));
 		M = TransObj;
 
 		objprog->bind();
-
-		// time affects speed of sin wave - frequency
+		
+		// time
 		static float time = 0.0;
-		//time += frametime;
+		time += 0.02;
 
-		// frequency
+		// frequency				// time affects speed of sin wave - frequency
+		static float freq = 0.0;
 		float freq_avg = 0;
 		for (int i = 0; i < sizeof(freqList_LO)/sizeof(*freqList_LO); i++) {
 			freq_avg += freqList_LO[i];
 		}
-		freq_avg /= sizeof(freqList_LO) / sizeof(*freqList_LO);
-		cout << freq_avg << endl;
+		freq_avg /= (sizeof(freqList_LO) / sizeof(*freqList_LO));
+		//cout << "freq_avg" << freq_avg << endl;
 		//freq_avg *= 10;
-		if (sizeof(freqList_LO) / sizeof(*freqList_LO) >= sizeof(freqList_LO) / sizeof(*freqList_LO) - 1)		// make sure there are frequencies in here
-			time += freq_avg * frametime * 5.0;
-		//time += 0.02;
+		//if (sizeof(freqList_LO) / sizeof(*freqList_LO) >= sizeof(freqList_LO) / sizeof(*freqList_LO) - 1)		// make sure there are frequencies in here
+			//freq += 0.02;
+			//freq = freq_avg * frametime;
+		static float oldfreq = 0.0;			// added delay filter for change in frequency
+		float diff = (freq_avg - oldfreq) / 50.0;		// make difference smaller
+		float actualfreq = (oldfreq + diff);
+		oldfreq = actualfreq;
+		freq_avg = abs(actualfreq + 1.0);
+
+
+		//cout << "(freq_avg - oldfreq)  = " << diff << endl;
+		//cout << "actualfreq = " << actualfreq << endl;
+		//cout << "time = " << time << endl;
+		cout << "freq_avg  = " << freq_avg << endl;
+		//cout << "time + freq = " << time + (10*freq_avg) << endl;
+		//freq += 0.02;
+		//freq_avg = freq;
 
 
 		// explode affects amplitude
@@ -777,32 +792,63 @@ public:
 		for (int i = 0; i < sizeof(ampsList_LO)/sizeof(*ampsList_LO); i++) {			// hardcoded 10 -- trying to figure out what size
 			explode += ampsList_LO[i];
 		}
-		explode /= sizeof(ampsList_LO) / sizeof(*ampsList_LO);						// average --> smoother explosion transitions
-		explode *= 10;
+		explode /= (sizeof(ampsList_LO) / sizeof(*ampsList_LO));						// average --> smoother explosion transitions
+//		explode *= 10;
 		// delay filter
 		static float oldexplode = 0;
-		float actualexplode = oldexplode + (explode - oldexplode) * .6;
+		float actualexplode = oldexplode + (explode - oldexplode) * .2;
 		//actualexplode = max(actualexplode, explode);
 		oldexplode = actualexplode;
 		explode = actualexplode;
-		//explode = max(explode, 1.0);
-		cout << "explode: " << explode << endl;
+		//cout << "explode: " << explode << endl;
 
-		//cout << "time: " << time << endl;
-		// send the uniforms to the gpu
 		glUniformMatrix4fv(objprog->getUniform("P"), 1, GL_FALSE, &P[0][0]);
 		glUniformMatrix4fv(objprog->getUniform("V"), 1, GL_FALSE, &V[0][0]);
 		glUniformMatrix4fv(objprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 		glUniform3fv(objprog->getUniform("camoff"), 1, &offset[0]);
 		glUniform3fv(objprog->getUniform("campos"), 1, &mycam.pos[0]);
-//		glUniform1f(objprog->getUniform("explode"), explode);
-		//explode = 3.0;
+		//explode = 0.5;
 		glUniform1f(objprog->getUniform("explode"), explode);
+		glUniform1f(objprog->getUniform("freq"), freq_avg);
 		glUniform1f(objprog->getUniform("time"), time);
 
 		shape->draw(objprog, false);
 
-		objprog->unbind();
+		//// HI
+
+		//// frequency				// time affects speed of sin wave - frequency
+		//static float hifreq = 0.0;
+		//freq_avg = 0;
+		//for (int i = 0; i < sizeof(freqList_HI) / sizeof(*freqList_HI); i++) {
+		//	freq_avg += freqList_HI[i];
+		//}
+		//freq_avg /= sizeof(freqList_HI) / sizeof(*freqList_HI);
+		//if (sizeof(freqList_HI) / sizeof(*freqList_HI) >= sizeof(freqList_HI) / sizeof(*freqList_HI) - 1)		// make sure there are frequencies in here
+		//	hifreq += freq_avg * frametime * 5.0;
+
+		//// explode affects amplitude
+		//explode = 0.0;
+		//for (int i = 0; i < sizeof(ampsList_LO) / sizeof(*ampsList_LO); i++) {			// hardcoded 10 -- trying to figure out what size
+		//	explode += ampsList_LO[i];
+		//}
+		//explode /= (sizeof(ampsList_LO) / sizeof(*ampsList_LO));						// average --> smoother explosion transitions
+		//explode *= 10;
+		//// delay filter
+		//static float oldexplode_hi = 0;
+		//actualexplode = oldexplode + (explode - oldexplode_hi) * .6;
+		////actualexplode = max(actualexplode, explode);
+		//oldexplode_hi = actualexplode;
+		//explode = actualexplode;
+		//explode = max(explode, 1.0);
+
+		//TransObj = glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, 0.0f, -10));
+		//M = TransObj;
+		//glUniformMatrix4fv(objprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+		//glUniform1f(objprog->getUniform("explode"), explode);
+		//glUniform1f(objprog->getUniform("time"), hifreq);
+
+		//shape->draw(objprog, false);
+		//objprog->unbind();
 		
 
 	
