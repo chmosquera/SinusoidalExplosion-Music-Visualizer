@@ -39,7 +39,7 @@ void main() {
 		float len = sqrt(gl_in[i].gl_Position.x * gl_in[i].gl_Position.x 
 					+ gl_in[i].gl_Position.z * gl_in[i].gl_Position.z);
 
-		float sinwave = abs(sin( time + (10.0*freq)  + len));					// play with * vs. +	
+		float sinwave = abs(sin( time + (freq/1.0)  + (len * 10.0)));					// play with * vs. +	
 		//sinwave = freq * len;
 		float fxn = pow(sinwave, 1.0);		// what does changing the power do? has some type of rhythm
 											// 1 -> 100 :: slow -> fast
@@ -50,6 +50,7 @@ void main() {
 		vec4 A = vec4(pointA * scale, 0.0, 0.0);
 
 		gl_Position = (gl_in[i].gl_Position + vec4(explode * normal * fxn, 0.0))
+		//gl_Position = (gl_in[i].gl_Position + vec4(explode * normal, 0.0))
 					+ (A * (1 - t))
 					+ (B * t);
 

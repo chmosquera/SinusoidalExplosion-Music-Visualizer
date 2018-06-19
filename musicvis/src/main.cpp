@@ -121,9 +121,18 @@ void write_to_tex(GLuint texturebuf,int resx,int resy)
 		texels[x * 4 + y * resx * 4 + 2] = (BYTE)erg;
 		texels[x * 4 + y * resx * 4 + 3] = (BYTE)erg;
 
+		ampsList_LO[x] = 10.0 * log(fftd + 1.0);
+		freqList_LO[x] = outfft[x][1];
+
 		// populate array of amplitudes && frequencies
-			ampsList_LO[x] = 10.0 * log(fftd + 1.0);				
-			freqList_LO[x] = outfft[x][1];
+		//if (x < (0.10 *resx)) {
+		//	ampsList_LO[x] = 10.0 * log(fftd + 1.0);
+		//	freqList_LO[x] = outfft[x][1];
+		//} 
+		//if (x > (0.30 * resx)) {
+		//	ampsList_HI[x] = 10.0 * log(fftd + 1.0);
+		//	freqList_HI[x] = outfft[x][1];
+		//}
 	}
 
 	//high
@@ -152,9 +161,9 @@ void write_to_tex(GLuint texturebuf,int resx,int resy)
 		}
 	}
 
-	for (int i = 0; i < resx; i++) {
-		file << freqList_LO[i] << '\t' << freqList_HI[i] << '\t' << ampsList_LO[i] << '\t' << ampsList_HI[i] << endl;
-	}
+	//for (int i = 0; i < resx; i++) {
+	//	file << freqList_LO[i] << '\t' << freqList_HI[i] << '\t' << ampsList_LO[i] << '\t' << ampsList_HI[i] << endl;
+	//}
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texturebuf);
@@ -803,10 +812,10 @@ public:
 		lo_explode = explode;
 		// delay filter
 		static float oldexplode = 0;
-		float actualexplode = oldexplode + (explode - oldexplode) * .2;
+		float actualexplode = oldexplode + (explode - oldexplode) * .6;
 		oldexplode = actualexplode;
 		explode = actualexplode;
-		//explode = pow(explode, 2.0);
+		//explode = pow(explode/2.0, 1.5);
 		//cout << "explode: " << explode << endl;
 
 		// explode affects amplitude
@@ -816,20 +825,30 @@ public:
 		}
 		hi_explode /= (sizeof(ampsList_HI) / sizeof(*ampsList_HI));
 
-		cout << lo_freq << '\t' << hi_freq << '\t' << lo_explode << '\t' << hi_explode << endl;
+		//cout << lo_freq << '\t' << hi_freq << '\t' << lo_explode << '\t' << hi_explode << endl;
+
+		
+		// transform
+		static float pos = 0.0;
+		float f = freq;
+		f = pow(f, 2.0);
+		//explode -= 5.0;
+		cout << "freq: " << pos << "  explode: " << explode << endl;
+		pos += (lo_freq/50.0);
+		//pos += 0.01;
+		mat4 Side = translate(mat4(1.0), vec3(pos, 0.0, 0.0));
 
 		// scale
 		mat4 Scale = scale(mat4(1.0), vec3(explode));
-		M = TransObj * Scale;
+		M = TransObj *Side* Scale;
 
 		glUniformMatrix4fv(objprog->getUniform("P"), 1, GL_FALSE, &P[0][0]);
 		glUniformMatrix4fv(objprog->getUniform("V"), 1, GL_FALSE, &V[0][0]);
 		glUniformMatrix4fv(objprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 		glUniform3fv(objprog->getUniform("camoff"), 1, &offset[0]);
 		glUniform3fv(objprog->getUniform("campos"), 1, &mycam.pos[0]);
-		explode = 1.0;
 		glUniform1f(objprog->getUniform("explode"), explode);
-		glUniform1f(objprog->getUniform("freq"), freq);
+		glUniform1f(objprog->getUniform("freq"), pos);
 		glUniform1f(objprog->getUniform("time"), time);
 
 		shape->draw(objprog, false);
