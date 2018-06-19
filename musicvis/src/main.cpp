@@ -14,6 +14,8 @@ On Windows, it whould capture "what you here" automatically, as long as you have
 #include <thread>
 #include <math.h>
 #include <algorithm>   
+#include <fstream>
+#include <iostream>
 
 #include "fftw/fftw3.h" 
 #include "stb_image.h"
@@ -37,11 +39,6 @@ extern int running;
 BYTE texels[TEXSIZE*TEXSIZE*4];
 int renderstate = 1;//2..grid
 shared_ptr<Shape> sky_sphere, shape;
-
-//vector<float> ampsList_LO = vector<float>();
-//vector<float> freqList_LO = vector<float>();
-//vector<float> ampsList_HI = vector<float>();
-//vector<float> freqList_HI = vector<float>();
 
 float ampsList_LO[TEXSIZE];
 float ampsList_HI[TEXSIZE];
@@ -104,6 +101,14 @@ void write_to_tex(GLuint texturebuf,int resx,int resy)
 
 	float dataSize = resx;
 
+	// print all values into a file?
+	fstream file;
+	file.open("../resources/soundData.txt", ios::out);	// ---------- open file | write
+	if (!file.is_open()) {
+		cout << "Warning: Could not open file - soundData.txt" << endl;
+	} 
+	file << "lo_freq" << '\t' << "hi_freq" << '\t' << "lo_amplitude" << '\t' << "hi_amplitude" << endl;
+
 	//low
 	for (int x = 0; x < resx; ++x)					// x accesses each frequency, resx depends on TEXSIZE - figure out a value for texsize 
 	{
@@ -117,8 +122,8 @@ void write_to_tex(GLuint texturebuf,int resx,int resy)
 		texels[x * 4 + y * resx * 4 + 3] = (BYTE)erg;
 
 		// populate array of amplitudes && frequencies
-			ampsList_LO[x] = fftd;				
-			freqList_LO[x] = outfft[x][0];
+			ampsList_LO[x] = 10.0 * log(fftd + 1.0);				
+			freqList_LO[x] = outfft[x][1];
 	}
 
 	//high
@@ -136,9 +141,7 @@ void write_to_tex(GLuint texturebuf,int resx,int resy)
 
 		// populate array of high amplitudes && high frequencies
 		ampsList_HI[y] = fm;
-		freqList_HI[y] = outfft[y + resx][0];
-		
-
+		freqList_HI[y] = outfft[y + resx][1];
 	}
 	
 	for (int y = 1; y < resy; y++) {			// what does erg do?
@@ -147,6 +150,10 @@ void write_to_tex(GLuint texturebuf,int resx,int resy)
 			erg /= 3;
 			texels[x * 4 + y * resx * 4] = erg;
 		}
+	}
+
+	for (int i = 0; i < resx; i++) {
+		file << freqList_LO[i] << '\t' << freqList_HI[i] << '\t' << ampsList_LO[i] << '\t' << ampsList_HI[i] << endl;
 	}
 
 	glActiveTexture(GL_TEXTURE0);
@@ -583,6 +590,8 @@ public:
 		heightshader->addAttribute("vertTex");
 		heightshader->addUniform("bgcolor");
 		heightshader->addUniform("renderstate");
+		heightshader->addUniform("explode");
+		heightshader->addUniform("freq");
 
 		// Initialize the GLSL program.
 		linesshader = std::make_shared<Program>();
@@ -759,17 +768,26 @@ public:
 		static float time = 0.0;
 		time += 0.02;
 
-		// frequency -- add variance to sin wave speed			
+		// frequency -- add variance to sin wave speed	
+		float lo_freq = 0;
 		float freq = 0;
 		for (int i = 0; i < sizeof(freqList_LO)/sizeof(*freqList_LO); i++) {
 			freq += freqList_LO[i];
 		}
 		freq /= (sizeof(freqList_LO) / sizeof(*freqList_LO));
+		lo_freq = freq; // -------- data collecting
 		static float oldfreq = 0.0;			// added delay filter for change in frequency
 		float diff = (freq - oldfreq) / 50.0;		// smaller diff --> softer variance
 		float actualfreq = (oldfreq + diff);
 		oldfreq = actualfreq;
 		freq = abs(actualfreq + 1.0);
+
+		// hi - frequency -------------- data collecting
+		float hi_freq = 0; 
+		for (int i = 0; i < sizeof(freqList_HI) / sizeof(*freqList_HI); i++) {
+			hi_freq += freqList_HI[i];
+		}
+		hi_freq /= (sizeof(freqList_HI) / sizeof(*freqList_HI));
 
 		//cout << "actualfreq = " << actualfreq << endl;
 		//cout << "time = " << time << endl;
@@ -777,11 +795,12 @@ public:
 		//cout << "time + freq = " << time + (10*freq) << endl;
 
 		// explode affects amplitude
-		float explode = 0.0;
+		float explode = 0.0; float lo_explode = 0.0;
 		for (int i = 0; i < sizeof(ampsList_LO)/sizeof(*ampsList_LO); i++) {
 			explode += ampsList_LO[i];
 		}
-		explode /= (sizeof(ampsList_LO) / sizeof(*ampsList_LO));					
+		explode /= (sizeof(ampsList_LO) / sizeof(*ampsList_LO));	
+		lo_explode = explode;
 		// delay filter
 		static float oldexplode = 0;
 		float actualexplode = oldexplode + (explode - oldexplode) * .2;
@@ -790,11 +809,25 @@ public:
 		//explode = pow(explode, 2.0);
 		//cout << "explode: " << explode << endl;
 
+		// explode affects amplitude
+		float hi_explode = 0.0;
+		for (int i = 0; i < sizeof(ampsList_HI) / sizeof(*ampsList_HI); i++) {
+			hi_explode += ampsList_HI[i];
+		}
+		hi_explode /= (sizeof(ampsList_HI) / sizeof(*ampsList_HI));
+
+		cout << lo_freq << '\t' << hi_freq << '\t' << lo_explode << '\t' << hi_explode << endl;
+
+		// scale
+		mat4 Scale = scale(mat4(1.0), vec3(explode));
+		M = TransObj * Scale;
+
 		glUniformMatrix4fv(objprog->getUniform("P"), 1, GL_FALSE, &P[0][0]);
 		glUniformMatrix4fv(objprog->getUniform("V"), 1, GL_FALSE, &V[0][0]);
 		glUniformMatrix4fv(objprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 		glUniform3fv(objprog->getUniform("camoff"), 1, &offset[0]);
 		glUniform3fv(objprog->getUniform("campos"), 1, &mycam.pos[0]);
+		explode = 1.0;
 		glUniform1f(objprog->getUniform("explode"), explode);
 		glUniform1f(objprog->getUniform("freq"), freq);
 		glUniform1f(objprog->getUniform("time"), time);
