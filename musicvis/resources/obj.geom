@@ -9,7 +9,7 @@ uniform vec3 campos;
 uniform vec2 pointA;
 uniform vec2 pointB;
 uniform float transClock;
-uniform float explode;
+uniform float amplitude;
 uniform float freq;
 uniform float time;
 
@@ -39,7 +39,8 @@ void main() {
 		float len = sqrt(gl_in[i].gl_Position.x * gl_in[i].gl_Position.x 
 					+ gl_in[i].gl_Position.z * gl_in[i].gl_Position.z);
 
-		float sinwave = abs(sin( time + (freq/1.0)  + (len * 10.0)));					// play with * vs. +	
+		//float sinwave = abs(sin( time ) *sin(freq  + (len * 10.0)));					// more bubbly
+		float sinwave = ((sin( time )*sin(freq  + (len * 10.0))) + 1.0)/2.0;					// more bubbly
 		//sinwave = freq * len;
 		float fxn = pow(sinwave, 1.0);		// what does changing the power do? has some type of rhythm
 											// 1 -> 100 :: slow -> fast
@@ -49,8 +50,8 @@ void main() {
 		vec4 B = vec4(pointB * scale, 0.0, 0.0);
 		vec4 A = vec4(pointA * scale, 0.0, 0.0);
 
-		gl_Position = (gl_in[i].gl_Position + vec4(explode * normal * fxn, 0.0))
-		//gl_Position = (gl_in[i].gl_Position + vec4(explode * normal, 0.0))
+		gl_Position = (gl_in[i].gl_Position + vec4(amplitude * normal * fxn, 0.0))
+		//gl_Position = (gl_in[i].gl_Position + vec4(amplitude * normal, 0.0))
 					+ (A * (1 - t))
 					+ (B * t);
 

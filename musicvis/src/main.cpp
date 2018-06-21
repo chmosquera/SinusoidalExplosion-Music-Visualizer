@@ -241,7 +241,7 @@ public:
 	WindowManager * windowManager = nullptr;
 
 	// Our shader program
-	std::shared_ptr<Program> prog, heightshader, skyprog, linesshader, objprog;
+	std::shared_ptr<Program> prog, heightshader, skyprog, linesshader, objprog, tessprog;
 
 	// Contains vertex information for OpenGL
 	GLuint VertexArrayID;
@@ -599,7 +599,7 @@ public:
 		heightshader->addAttribute("vertTex");
 		heightshader->addUniform("bgcolor");
 		heightshader->addUniform("renderstate");
-		heightshader->addUniform("explode");
+		heightshader->addUniform("amplitude");
 		heightshader->addUniform("freq");
 
 		// Initialize the GLSL program.
@@ -634,11 +634,25 @@ public:
 		//objprog->addAttribute("vertTex");
 		//objprog->addUniform("camoff");
 		objprog->addUniform("camPos");
-		objprog->addUniform("explode");
+		objprog->addUniform("amplitude");
 		objprog->addUniform("freq");
 		objprog->addUniform("time");
 		objprog->addUniform("pointA");
 		objprog->addUniform("pointB");
+
+		// Initialize the GLSL program.
+		tessprog = std::make_shared<Program>();
+		tessprog->setVerbose(true);
+		tessprog->setShaderNames(resourceDirectory + "/obj.vert", resourceDirectory + "/obj.frag", resourceDirectory + "/tessellate.geom");
+		tessprog->init();
+		tessprog->addAttribute("vertPos");
+		tessprog->addAttribute("vertCol");
+		tessprog->addUniform("P");
+		tessprog->addUniform("V");
+		tessprog->addUniform("M");
+		tessprog->addUniform("amplitude");
+		tessprog->addUniform("freq");
+		tessprog->addUniform("time");
 		
 		
 	}
@@ -672,11 +686,9 @@ public:
 		P = glm::perspective((float)(3.14159 / 4.), (float)((float)width/ (float)height), 0.01f, 100000.0f); 
 
 		//animation with the model matrix:
-		static float w = 0.0;
-		w += 1.0 * frametime;
 		float trans = 0;
-		w = 0.6;
-		glm::mat4 RotateY = glm::rotate(glm::mat4(1.0f), w, glm::vec3(0.0f, 1.0f, 0.0f));
+		float skyAngle = 0.6;
+		glm::mat4 RotateY = glm::rotate(glm::mat4(1.0f), skyAngle, glm::vec3(0.0f, 1.0f, 0.0f));
 		float angle = 3.1415926/2.0;
 		glm::mat4 RotateX = glm::rotate(glm::mat4(1.0f), angle, glm::vec3(1.0f, 0.0f, 0.0f));
 		glm::mat4 TransZ = glm::translate(glm::mat4(1.0f), -mycam.pos);
@@ -775,8 +787,9 @@ public:
 		
 		// time affects speed of sin wave
 		static float time = 0.0;
-		time += 0.02;
+		time += 0.005;
 
+		/************* LO FREQUENCY ********************/
 		// frequency -- add variance to sin wave speed	
 		float lo_freq = 0;
 		float freq = 0;
@@ -791,63 +804,69 @@ public:
 		oldfreq = actualfreq;
 		freq = abs(actualfreq + 1.0);
 
-		// hi - frequency -------------- data collecting
+		/************* HI FREQUENCY ********************/
 		float hi_freq = 0; 
 		for (int i = 0; i < sizeof(freqList_HI) / sizeof(*freqList_HI); i++) {
 			hi_freq += freqList_HI[i];
 		}
 		hi_freq /= (sizeof(freqList_HI) / sizeof(*freqList_HI));
 
-		//cout << "actualfreq = " << actualfreq << endl;
-		//cout << "time = " << time << endl;
-		//cout << "freq  = " << freq << endl;
-		//cout << "time + freq = " << time + (10*freq) << endl;
-
+		/************* LO EXPLODE ********************/
 		// explode affects amplitude
-		float explode = 0.0; float lo_explode = 0.0;
+		float amplitude = 0.0; float lo_amplitude = 0.0;
 		for (int i = 0; i < sizeof(ampsList_LO)/sizeof(*ampsList_LO); i++) {
-			explode += ampsList_LO[i];
+			amplitude += ampsList_LO[i];
 		}
-		explode /= (sizeof(ampsList_LO) / sizeof(*ampsList_LO));	
-		lo_explode = explode;
+		amplitude /= (sizeof(ampsList_LO) / sizeof(*ampsList_LO));	
+		lo_amplitude = amplitude;
 		// delay filter
-		static float oldexplode = 0;
-		float actualexplode = oldexplode + (explode - oldexplode) * .6;
-		oldexplode = actualexplode;
-		explode = actualexplode;
-		//explode = pow(explode/2.0, 1.5);
-		//cout << "explode: " << explode << endl;
+		static float oldamplitude = 0;
+		float actualamplitude = oldamplitude + (amplitude - oldamplitude) * .1;
+		oldamplitude = actualamplitude;
+		amplitude = actualamplitude;
+		//amplitude = pow(amplitude/2.0, 1.5);
+		//cout << "amplitude: " << amplitude << endl;
 
-		// explode affects amplitude
-		float hi_explode = 0.0;
+		/************* HI amplitude ********************/
+		float hi_amplitude = 0.0;
 		for (int i = 0; i < sizeof(ampsList_HI) / sizeof(*ampsList_HI); i++) {
-			hi_explode += ampsList_HI[i];
+			hi_amplitude += ampsList_HI[i];
 		}
-		hi_explode /= (sizeof(ampsList_HI) / sizeof(*ampsList_HI));
+		hi_amplitude /= (sizeof(ampsList_HI) / sizeof(*ampsList_HI));
 
-		//cout << lo_freq << '\t' << hi_freq << '\t' << lo_explode << '\t' << hi_explode << endl;
+		//cout << lo_freq << '\t' << hi_freq << '\t' << lo_amplitude << '\t' << hi_amplitude << endl;
 
-		
+		/************* EXTRAS ********************/
+		static float w = 0.0;
+		if (lo_freq > 0.0) w += frametime/10.0;
+		else if (lo_freq < 0.0) w -= frametime/10.0;
+		if (lo_freq > 1.0) {
+			cout << "FREQENCY IS HIGH: " << lo_freq << " AND HAS MAGNITUDE OF : " << amplitude << endl;
+			w += 5.0 * frametime;
+		}
+		if (lo_freq < -1.0) {
+			cout << "FREQENCY IS LOW: " << lo_freq << " AND HAS MAGNITUDE OF : " << amplitude << endl;
+			w -= 5.0 * frametime;
+		}
+
 		// transform
+		mat4 SpinCW = rotate(mat4(1.0), w, vec3(0, 0, 1));
 		static float pos = 0.0;
-		float f = freq;
-		f = pow(f, 2.0);
-		//explode -= 5.0;
-		cout << "freq: " << pos << "  explode: " << explode << endl;
-		pos += (lo_freq/50.0);
-		//pos += 0.01;
+		//amplitude -= 5.0;
+		cout << "freq: " << lo_freq << "  amplitude: " << amplitude << endl;
+		pos += (lo_freq/100.0);
 		mat4 Side = translate(mat4(1.0), vec3(pos, 0.0, 0.0));
 
 		// scale
-		mat4 Scale = scale(mat4(1.0), vec3(explode));
-		M = TransObj *Side* Scale;
+		mat4 Scale = scale(mat4(1.0), vec3(amplitude));
+		M = TransObj *Side* SpinCW * Scale;
 
 		glUniformMatrix4fv(objprog->getUniform("P"), 1, GL_FALSE, &P[0][0]);
 		glUniformMatrix4fv(objprog->getUniform("V"), 1, GL_FALSE, &V[0][0]);
 		glUniformMatrix4fv(objprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 		glUniform3fv(objprog->getUniform("camoff"), 1, &offset[0]);
 		glUniform3fv(objprog->getUniform("campos"), 1, &mycam.pos[0]);
-		glUniform1f(objprog->getUniform("explode"), explode);
+		glUniform1f(objprog->getUniform("amplitude"), amplitude);
 		glUniform1f(objprog->getUniform("freq"), pos);
 		glUniform1f(objprog->getUniform("time"), time);
 

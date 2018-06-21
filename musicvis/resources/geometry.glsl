@@ -8,7 +8,6 @@ in vec2 vertex_tex[];
 uniform mat4 P;
 uniform mat4 V;
 uniform mat4 M;
-uniform float explode;
 uniform float freq;
 
 out vec3 frag_pos;
@@ -24,7 +23,7 @@ vec3 c = normalize(cross(ab,ac));
   {
 	//mat4 up = translate(mat4(1.0), vec3(0, 1, 0));
 	//glm::mat4 up = glm::translate(glm::mat4(1.0f), vec3(0.0, 1.0, 0.0);
-	gl_Position = P * V  * gl_in[i].gl_Position + (vec4(0, 1, 0, 0) * explode);
+	gl_Position = P * V  * gl_in[i].gl_Position + (vec4(0, 1, 0, 0));
 	frag_pos=gl_in[i].gl_Position.xyz;
 	frag_tex=vertex_tex[i];
 	frag_norm = c;
