@@ -38,7 +38,7 @@ extern int running;
 
 BYTE texels[TEXSIZE*TEXSIZE*4];
 int renderstate = 1;//2..grid
-shared_ptr<Shape> sky_sphere, shape;
+shared_ptr<Shape> sky_sphere, shape, cube;
 
 float ampsList_LO[TEXSIZE];
 float ampsList_HI[TEXSIZE];
@@ -107,7 +107,7 @@ void write_to_tex(GLuint texturebuf,int resx,int resy)
 	if (!file.is_open()) {
 		cout << "Warning: Could not open file - soundData.txt" << endl;
 	} 
-	file << "lo_freq" << '\t' << "hi_freq" << '\t' << "lo_amplitude" << '\t' << "hi_amplitude" << endl;
+	file << "freq" << '\t' << "hi_freq" << '\t' << "lo_amplitude" << '\t' << "hi_amplitude" << endl;
 
 	//low
 	for (int x = 0; x < resx; ++x)					// x accesses each frequency, resx depends on TEXSIZE - figure out a value for texsize 
@@ -417,6 +417,10 @@ public:
 		shape->resize();
 		shape->init();
 
+		cube = make_shared<Shape>();
+		cube->loadMesh(resourceDirectory + "/cube.obj");
+		cube->resize();
+		cube->init();
 	}
 
 	/*Note that any gl calls must always happen after a GL state is initialized */
@@ -429,10 +433,11 @@ public:
 
 		// Initialize mesh.
 		sky_sphere = make_shared<Shape>();
-		//shape->loadMesh(resourceDirectory + "/t800.obj");
 		sky_sphere->loadMesh(resourceDirectory + "/sphere.obj");
 		sky_sphere->resize();
 		sky_sphere->init();
+
+
 
 		int width, height, channels;
 		char filepath[1000];
@@ -643,17 +648,19 @@ public:
 		// Initialize the GLSL program.
 		tessprog = std::make_shared<Program>();
 		tessprog->setVerbose(true);
-		tessprog->setShaderNames(resourceDirectory + "/obj.vert", resourceDirectory + "/obj.frag", resourceDirectory + "/tessellate.geom");
+		tessprog->setShaderNames(resourceDirectory + "/tessellate.vert", resourceDirectory + "/obj.frag", resourceDirectory + "/tessellate.geom");
 		tessprog->init();
-		tessprog->addAttribute("vertPos");
-		tessprog->addAttribute("vertCol");
 		tessprog->addUniform("P");
 		tessprog->addUniform("V");
 		tessprog->addUniform("M");
+		tessprog->addAttribute("vertPos");
+		tessprog->addAttribute("vertCol");
+		//tessprog->addAttribute("vertTex");
+		//tessprog->addUniform("camoff");
+		//tessprog->addUniform("camPos");
 		tessprog->addUniform("amplitude");
 		tessprog->addUniform("freq");
 		tessprog->addUniform("time");
-		
 		
 	}
 
@@ -778,7 +785,10 @@ public:
 			linesshader->unbind();
 		}
 
-		
+		/*******************************************/
+		/*************** EXPLOSION *****************/
+		/*******************************************/
+
 		// all obj transformations
 		glm::mat4  TransObj = glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 0.0f, -10));
 		M = TransObj;
@@ -789,63 +799,45 @@ public:
 		static float time = 0.0;
 		time += 0.005;
 
-		/************* LO FREQUENCY ********************/
+		/************* FREQUENCY ********************/
 		// frequency -- add variance to sin wave speed	
-		float lo_freq = 0;
 		float freq = 0;
 		for (int i = 0; i < sizeof(freqList_LO)/sizeof(*freqList_LO); i++) {
 			freq += freqList_LO[i];
 		}
 		freq /= (sizeof(freqList_LO) / sizeof(*freqList_LO));
-		lo_freq = freq; // -------- data collecting
-		static float oldfreq = 0.0;			// added delay filter for change in frequency
-		float diff = (freq - oldfreq) / 50.0;		// smaller diff --> softer variance
-		float actualfreq = (oldfreq + diff);
-		oldfreq = actualfreq;
-		freq = abs(actualfreq + 1.0);
 
-		/************* HI FREQUENCY ********************/
-		float hi_freq = 0; 
-		for (int i = 0; i < sizeof(freqList_HI) / sizeof(*freqList_HI); i++) {
-			hi_freq += freqList_HI[i];
-		}
-		hi_freq /= (sizeof(freqList_HI) / sizeof(*freqList_HI));
+			// delay frequency
+			static float oldfreq = 0.0;			// added delay filter for change in frequency
+			float diff = (freq - oldfreq) / 50.0;		// smaller diff --> softer variance
+			float actualfreq = (oldfreq + diff);
+			oldfreq = actualfreq;
+			float delayfreq = abs(actualfreq + 1.0);
 
-		/************* LO EXPLODE ********************/
-		// explode affects amplitude
+		/************* EXPLODE ********************/
+		// amplitude affects explode scale and object scale
 		float amplitude = 0.0; float lo_amplitude = 0.0;
 		for (int i = 0; i < sizeof(ampsList_LO)/sizeof(*ampsList_LO); i++) {
 			amplitude += ampsList_LO[i];
 		}
 		amplitude /= (sizeof(ampsList_LO) / sizeof(*ampsList_LO));	
-		lo_amplitude = amplitude;
-		// delay filter
-		static float oldamplitude = 0;
-		float actualamplitude = oldamplitude + (amplitude - oldamplitude) * .1;
-		oldamplitude = actualamplitude;
-		amplitude = actualamplitude;
-		//amplitude = pow(amplitude/2.0, 1.5);
-		//cout << "amplitude: " << amplitude << endl;
 
-		/************* HI amplitude ********************/
-		float hi_amplitude = 0.0;
-		for (int i = 0; i < sizeof(ampsList_HI) / sizeof(*ampsList_HI); i++) {
-			hi_amplitude += ampsList_HI[i];
-		}
-		hi_amplitude /= (sizeof(ampsList_HI) / sizeof(*ampsList_HI));
-
-		//cout << lo_freq << '\t' << hi_freq << '\t' << lo_amplitude << '\t' << hi_amplitude << endl;
+			// delay filter
+			static float oldamplitude = 0;
+			float actualamplitude = oldamplitude + (amplitude - oldamplitude) * .1;
+			oldamplitude = actualamplitude;
+			float delayamplitude = actualamplitude;
 
 		/************* EXTRAS ********************/
 		static float w = 0.0;
-		if (lo_freq > 0.0) w += frametime/10.0;
-		else if (lo_freq < 0.0) w -= frametime/10.0;
-		if (lo_freq > 1.0) {
-			cout << "FREQENCY IS HIGH: " << lo_freq << " AND HAS MAGNITUDE OF : " << amplitude << endl;
+		if (freq > 0.0) w += frametime/10.0;
+		else if (freq < 0.0) w -= frametime/10.0;
+		if (freq > 1.0) {
+			cout << "FREQENCY IS HIGH: " << freq << " AND HAS MAGNITUDE OF : " << amplitude << endl;
 			w += 5.0 * frametime;
 		}
-		if (lo_freq < -1.0) {
-			cout << "FREQENCY IS LOW: " << lo_freq << " AND HAS MAGNITUDE OF : " << amplitude << endl;
+		if (freq < -1.0) {
+			cout << "FREQENCY IS LOW: " << freq << " AND HAS MAGNITUDE OF : " << amplitude << endl;
 			w -= 5.0 * frametime;
 		}
 
@@ -853,12 +845,12 @@ public:
 		mat4 SpinCW = rotate(mat4(1.0), w, vec3(0, 0, 1));
 		static float pos = 0.0;
 		//amplitude -= 5.0;
-		cout << "freq: " << lo_freq << "  amplitude: " << amplitude << endl;
-		pos += (lo_freq/100.0);
+		//cout << "freq: " << freq << "  amplitude: " << delayamplitude << endl;
+		pos += (freq/100.0);
 		mat4 Side = translate(mat4(1.0), vec3(pos, 0.0, 0.0));
 
 		// scale
-		mat4 Scale = scale(mat4(1.0), vec3(amplitude));
+		mat4 Scale = scale(mat4(1.0), vec3(delayamplitude));
 		M = TransObj *Side* SpinCW * Scale;
 
 		glUniformMatrix4fv(objprog->getUniform("P"), 1, GL_FALSE, &P[0][0]);
@@ -866,13 +858,27 @@ public:
 		glUniformMatrix4fv(objprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 		glUniform3fv(objprog->getUniform("camoff"), 1, &offset[0]);
 		glUniform3fv(objprog->getUniform("campos"), 1, &mycam.pos[0]);
-		glUniform1f(objprog->getUniform("amplitude"), amplitude);
+		glUniform1f(objprog->getUniform("amplitude"), delayamplitude);
 		glUniform1f(objprog->getUniform("freq"), pos);
 		glUniform1f(objprog->getUniform("time"), time);
-
-		shape->draw(objprog, false);
+		//shape->draw(objprog, false);
 
 		objprog->unbind();
+
+		/************************ Tesselate **************************/
+		TransObj = glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, 0.0f, -10));
+		M = TransObj;
+
+		tessprog->bind();
+		glUniformMatrix4fv(tessprog->getUniform("P"), 1, GL_FALSE, &P[0][0]);
+		glUniformMatrix4fv(tessprog->getUniform("V"), 1, GL_FALSE, &V[0][0]);
+		glUniformMatrix4fv(tessprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+		glUniform1f(tessprog->getUniform("amplitude"), delayamplitude);
+		glUniform1f(tessprog->getUniform("freq"), pos);
+		glUniform1f(tessprog->getUniform("time"), time);
+
+		cube->draw(tessprog, false);
+		tessprog->unbind();
 		
 
 	

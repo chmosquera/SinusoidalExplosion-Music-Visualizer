@@ -17,20 +17,23 @@ void main() {
 	// color
 	fcolor = vcolor[0];
 
+	
 	// setup - normalize
-	vec3 a = normalize(gl_in[0].gl_position.xyz);
-	vec3 b = normalize(gl_in[1].gl_position.xyz);
-	vec3 c = normalize(gl_in[2].gl_position.xyz);
+	vec3 a = normalize(gl_in[0].gl_Position.xyz);
+	vec3 b = normalize(gl_in[1].gl_Position.xyz);
+	vec3 c = normalize(gl_in[2].gl_Position.xyz);
 	vec3 d = normalize(b + c);
-
+	
+	
 	// output
-	gl_position = b;
+	gl_Position = P * V * M * vec4(b, 1.0);
 	EmitVertex();
-	gl_position = d;
+	gl_Position = P * V * M * vec4(d, 1.0);
 	EmitVertex();
-	gl_position = a;
+	gl_Position = P * V * M * vec4(a, 1.0);
 	EmitVertex();
-	gl_position = c;
-	EmitVertex();
+	gl_Position = P * V * M * vec4(c, 1.0);
+	EmitVertex(); 
 	EndPrimitive();
+	
 }  

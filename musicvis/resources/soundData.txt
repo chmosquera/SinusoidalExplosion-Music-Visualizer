@@ -1,1 +1,1 @@
-lo_freq	hi_freq	lo_amplitude	hi_amplitude
+freq	hi_freq	lo_amplitude	hi_amplitude

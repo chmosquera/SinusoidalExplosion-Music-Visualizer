@@ -7,7 +7,8 @@ uniform float freq;
 
 void main()
 {
-	color.xyz = fcolor * (1.0 - abs(freq));	// gets darker sometimes
+	color.xyz = fcolor;	// gets darker sometimes
+	//color.xyz += vec3(1.0) * max(freq, 0.8);
 	
 	//float f = freq - int(freq);
 	//color.r *= f;

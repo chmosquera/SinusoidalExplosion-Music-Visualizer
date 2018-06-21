@@ -107,5 +107,8 @@
     <None Include="..\resources\tessellate.geom">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="..\resources\tessellate.vert">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
