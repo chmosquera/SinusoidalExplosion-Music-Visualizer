@@ -110,5 +110,26 @@
     <None Include="..\resources\tessellate.vert">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="..\resources\tessellate.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\resources\normal_lines.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\resources\normal_lines.geom">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\resources\normal_lines.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\resources\boombox.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\resources\boombox.geom">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\resources\boombox.vert">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

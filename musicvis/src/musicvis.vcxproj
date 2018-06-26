@@ -40,12 +40,18 @@
     <ClInclude Include="WindowManager.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\resources\boombox.frag" />
+    <None Include="..\resources\boombox.geom" />
+    <None Include="..\resources\boombox.vert" />
     <None Include="..\resources\geometry.glsl" />
     <None Include="..\resources\height_frag.glsl" />
     <None Include="..\resources\height_vertex.glsl" />
     <None Include="..\resources\lines_geometry.glsl" />
     <None Include="..\resources\lines_height_frag.glsl" />
     <None Include="..\resources\lines_height_vertex.glsl" />
+    <None Include="..\resources\normal_lines.frag" />
+    <None Include="..\resources\normal_lines.geom" />
+    <None Include="..\resources\normal_lines.vert" />
     <None Include="..\resources\obj.frag" />
     <None Include="..\resources\obj.geom" />
     <None Include="..\resources\obj.vert" />
@@ -53,6 +59,7 @@
     <None Include="..\resources\shader_vertex.glsl" />
     <None Include="..\resources\sky_fragment.glsl" />
     <None Include="..\resources\sky_vertex.glsl" />
+    <None Include="..\resources\tessellate.frag" />
     <None Include="..\resources\tessellate.geom" />
     <None Include="..\resources\tessellate.vert" />
   </ItemGroup>

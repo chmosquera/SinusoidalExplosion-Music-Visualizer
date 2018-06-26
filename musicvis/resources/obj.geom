@@ -18,7 +18,7 @@ out vec3 fcolor;
 
 const float PI = 3.1415926;
 
-void main() {    
+void main() {   
 
 	// color
 	fcolor = vcolor[0];
@@ -50,10 +50,7 @@ void main() {
 		vec4 B = vec4(pointB * scale, 0.0, 0.0);
 		vec4 A = vec4(pointA * scale, 0.0, 0.0);
 
-		gl_Position = (gl_in[i].gl_Position + vec4(amplitude * normal * fxn, 0.0))
-		//gl_Position = (gl_in[i].gl_Position + vec4(amplitude * normal, 0.0))
-					+ (A * (1 - t))
-					+ (B * t);
+		gl_Position = (gl_in[i].gl_Position + vec4(amplitude * normal * fxn, 0.0));
 
 		EmitVertex();
 	}

@@ -12,6 +12,7 @@ out vec3 vcolor;
 void main()
 {
 	gl_Position = P* V * M * vec4(vertPos, 1.0);
+	//gl_Position = vec4(vertPos, 1.0);
 	vcolor = vertPos;
 
 }

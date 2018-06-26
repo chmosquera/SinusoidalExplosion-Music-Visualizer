@@ -6,12 +6,14 @@ uniform mat4 P;
 uniform mat4 V;
 uniform mat4 M;
 
-out vec3 vertex_normal;
+out vec3 vnormal;
 out vec3 vcolor;
+out vec3 vpos;
 
 void main()
 {
-	gl_Position = P* V * M * vec4(vertPos, 1.0);
+	gl_Position = P * V * M * vec4(vertPos, 1.0);
 	vcolor = vertPos;
-
+	vnormal = vertNor;
+	vpos = vec3(P * V * M * vec4(vertPos, 1.0));
 }

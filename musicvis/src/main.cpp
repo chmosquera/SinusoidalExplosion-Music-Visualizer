@@ -38,7 +38,7 @@ extern int running;
 
 BYTE texels[TEXSIZE*TEXSIZE*4];
 int renderstate = 1;//2..grid
-shared_ptr<Shape> sky_sphere, shape, cube;
+shared_ptr<Shape> sky_sphere, shape, cube, plane;
 
 float ampsList_LO[TEXSIZE];
 float ampsList_HI[TEXSIZE];
@@ -161,10 +161,6 @@ void write_to_tex(GLuint texturebuf,int resx,int resy)
 		}
 	}
 
-	//for (int i = 0; i < resx; i++) {
-	//	file << freqList_LO[i] << '\t' << freqList_HI[i] << '\t' << ampsList_LO[i] << '\t' << ampsList_HI[i] << endl;
-	//}
-
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texturebuf);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, TEXSIZE, TEXSIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, texels);
@@ -241,7 +237,7 @@ public:
 	WindowManager * windowManager = nullptr;
 
 	// Our shader program
-	std::shared_ptr<Program> prog, heightshader, skyprog, linesshader, objprog, tessprog;
+	std::shared_ptr<Program> prog, heightshader, skyprog, linesshader, objprog, tessprog, sideprog;
 
 	// Contains vertex information for OpenGL
 	GLuint VertexArrayID;
@@ -254,8 +250,7 @@ public:
 	GLuint Texture2,HeightTex;
 
 	// Toggles - sent to the shaders
-	int PAUSE = 0, RESET = 0;
-	int REVERSE = 1;
+	int rSpeaker = 0, lSpeaker = 0;
 
 	// transitioning objects
 	//float initPos[2], finalPos[2];
@@ -281,7 +276,6 @@ public:
 		if (key == GLFW_KEY_Z && action == GLFW_RELEASE)mycam.z = 0;
 		if (key == GLFW_KEY_C && action == GLFW_PRESS)mycam.c = 1;
 		if (key == GLFW_KEY_C && action == GLFW_RELEASE)mycam.c = 0;
-		if (key == GLFW_KEY_R && action == GLFW_PRESS) RESET = !RESET;
 		if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE)
 		{
 			if (renderstate == 1)
@@ -289,6 +283,10 @@ public:
 			else
 				renderstate = 1;
 		}
+		if (key == GLFW_KEY_RIGHT_SHIFT && action == GLFW_PRESS) rSpeaker = 1;
+		if (key == GLFW_KEY_RIGHT_SHIFT && action == GLFW_RELEASE) rSpeaker = 0;
+		if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS) lSpeaker = 1;
+		if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_RELEASE) lSpeaker = 0;
 		
 	}
 
@@ -413,7 +411,7 @@ public:
 		string resourceDirectory = "../resources";
 		// Initialize mesh.
 		shape = make_shared<Shape>();
-		shape->loadMesh(resourceDirectory + "/sphere.obj");
+		shape->loadMesh(resourceDirectory + "/sphere50.obj");
 		shape->resize();
 		shape->init();
 
@@ -421,6 +419,11 @@ public:
 		cube->loadMesh(resourceDirectory + "/cube.obj");
 		cube->resize();
 		cube->init();
+
+		plane = make_shared<Shape>();
+		plane->loadMesh(resourceDirectory + "/sphere.obj");
+		plane->resize();
+		plane->init();
 	}
 
 	/*Note that any gl calls must always happen after a GL state is initialized */
@@ -645,10 +648,10 @@ public:
 		objprog->addUniform("pointA");
 		objprog->addUniform("pointB");
 
-		// Initialize the GLSL program.
+		 //Initialize the GLSL program.
 		tessprog = std::make_shared<Program>();
 		tessprog->setVerbose(true);
-		tessprog->setShaderNames(resourceDirectory + "/tessellate.vert", resourceDirectory + "/obj.frag", resourceDirectory + "/tessellate.geom");
+		tessprog->setShaderNames(resourceDirectory + "/normal_lines.vert", resourceDirectory + "/normal_lines.frag", resourceDirectory + "/normal_lines.geom");
 		tessprog->init();
 		tessprog->addUniform("P");
 		tessprog->addUniform("V");
@@ -661,6 +664,25 @@ public:
 		tessprog->addUniform("amplitude");
 		tessprog->addUniform("freq");
 		tessprog->addUniform("time");
+		tessprog->addUniform("angle");
+
+		//Initialize the GLSL program.
+		sideprog = std::make_shared<Program>();
+		sideprog->setVerbose(true);
+		sideprog->setShaderNames(resourceDirectory + "/boombox.vert", resourceDirectory + "/boombox.frag", resourceDirectory + "/boombox.geom");
+		sideprog->init();
+		sideprog->addUniform("P");
+		sideprog->addUniform("V");
+		sideprog->addUniform("M");
+		sideprog->addAttribute("vertPos");
+		sideprog->addAttribute("vertCol");
+		//sideprog->addAttribute("vertTex");
+		//sideprog->addUniform("camoff");
+		//sideprog->addUniform("camPos");
+		sideprog->addUniform("amplitude");
+		sideprog->addUniform("freq");
+		sideprog->addUniform("time");
+		sideprog->addUniform("angle");
 		
 	}
 
@@ -684,7 +706,9 @@ public:
 		glViewport(0, 0, width, height);
 
 		// Clear framebuffer.
-		glClearColor(0.8f, 0.8f, 1.0f, 1.0f);
+		//glClearColor(0.8f, 0.8f, 1.0f, 1.0f);
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glm::mat4 V, M, P;		
@@ -732,8 +756,10 @@ public:
 			offset.z = (int)offset.z;
 			offset = vec3(0, 0, 0);
 			vec3 bg = vec3(254. / 255., 225. / 255., 168. / 255.);
-			if (renderstate == 2)
-				bg = vec3(49. / 255., 88. / 255., 114. / 255.);
+			bg = vec3(0.0);
+			//if (renderstate == 2)
+				//bg = vec3(49. / 255., 88. / 255., 114. / 255.);
+				
 			glUniform3fv(heightshader->getUniform("camoff"), 1, &offset[0]);
 			glUniform3fv(heightshader->getUniform("campos"), 1, &mycam.pos[0]);
 			glUniform3fv(heightshader->getUniform("bgcolor"), 1, &bg[0]);
@@ -746,7 +772,7 @@ public:
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, HeightTex);
 		
-			glDrawArrays(GL_TRIANGLES, 0, MESHSIZE*MESHSIZE * 6);			
+			//glDrawArrays(GL_TRIANGLES, 0, MESHSIZE*MESHSIZE * 6);			
 			heightshader->unbind();
 
 		
@@ -766,8 +792,9 @@ public:
 			offset.z = (int)offset.z;
 			offset = vec3(0, 0, 0);
 			vec3 bg = vec3(254. / 255., 225. / 255., 168. / 255.);
-			if (renderstate == 2)
-				bg = vec3(49. / 255., 88. / 255., 114. / 255.);
+			bg = vec3(0.0);
+			//if (renderstate == 2)
+				//bg = vec3(49. / 255., 88. / 255., 114. / 255.);
 			glUniform3fv(linesshader->getUniform("camoff"), 1, &offset[0]);
 			glUniform3fv(linesshader->getUniform("campos"), 1, &mycam.pos[0]);
 			glUniform3fv(linesshader->getUniform("bgcolor"), 1, &bg[0]);
@@ -780,8 +807,8 @@ public:
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, HeightTex);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferIDBox);
-			glDrawElements(GL_LINES, MESHSIZE*MESHSIZE * 8, GL_UNSIGNED_INT, (void*)0);
-			glDrawArrays(GL_TRIANGLES, 0, MESHSIZE*MESHSIZE * 6);
+			//glDrawElements(GL_LINES, MESHSIZE*MESHSIZE * 8, GL_UNSIGNED_INT, (void*)0);
+			//glDrawArrays(GL_TRIANGLES, 0, MESHSIZE*MESHSIZE * 6);
 			linesshader->unbind();
 		}
 
@@ -790,7 +817,7 @@ public:
 		/*******************************************/
 
 		// all obj transformations
-		glm::mat4  TransObj = glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 0.0f, -10));
+		glm::mat4  TransObj = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -50.0));
 		M = TransObj;
 
 		objprog->bind();
@@ -833,18 +860,15 @@ public:
 		if (freq > 0.0) w += frametime/10.0;
 		else if (freq < 0.0) w -= frametime/10.0;
 		if (freq > 1.0) {
-			cout << "FREQENCY IS HIGH: " << freq << " AND HAS MAGNITUDE OF : " << amplitude << endl;
 			w += 5.0 * frametime;
 		}
-		if (freq < -1.0) {
-			cout << "FREQENCY IS LOW: " << freq << " AND HAS MAGNITUDE OF : " << amplitude << endl;
+		else if (freq < -1.0) {
 			w -= 5.0 * frametime;
 		}
 
 		// transform
 		mat4 SpinCW = rotate(mat4(1.0), w, vec3(0, 0, 1));
 		static float pos = 0.0;
-		//amplitude -= 5.0;
 		//cout << "freq: " << freq << "  amplitude: " << delayamplitude << endl;
 		pos += (freq/100.0);
 		mat4 Side = translate(mat4(1.0), vec3(pos, 0.0, 0.0));
@@ -852,7 +876,7 @@ public:
 		// scale
 		mat4 Scale = scale(mat4(1.0), vec3(delayamplitude));
 		M = TransObj *Side* SpinCW * Scale;
-
+		
 		glUniformMatrix4fv(objprog->getUniform("P"), 1, GL_FALSE, &P[0][0]);
 		glUniformMatrix4fv(objprog->getUniform("V"), 1, GL_FALSE, &V[0][0]);
 		glUniformMatrix4fv(objprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
@@ -861,13 +885,20 @@ public:
 		glUniform1f(objprog->getUniform("amplitude"), delayamplitude);
 		glUniform1f(objprog->getUniform("freq"), pos);
 		glUniform1f(objprog->getUniform("time"), time);
-		//shape->draw(objprog, false);
+		shape->draw(objprog, false);
 
 		objprog->unbind();
 
-		/************************ Tesselate **************************/
-		TransObj = glm::translate(glm::mat4(1.0f), glm::vec3(-3.0f, 0.0f, -10));
-		M = TransObj;
+		/************************ Sky Sphere **************************/
+		TransObj = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0));
+		static float tw = 0.0;
+		tw += 0.01 * abs(freq);
+	
+		SpinCW = rotate(mat4(1.0), tw, vec3(0, 0, 1));
+
+		TransObj = translate(mat4(1.0), -mycam.pos);
+		Scale = scale(mat4(1.0), vec3(100.0));
+		M = TransObj * SpinCW * Scale;
 
 		tessprog->bind();
 		glUniformMatrix4fv(tessprog->getUniform("P"), 1, GL_FALSE, &P[0][0]);
@@ -876,11 +907,98 @@ public:
 		glUniform1f(tessprog->getUniform("amplitude"), delayamplitude);
 		glUniform1f(tessprog->getUniform("freq"), pos);
 		glUniform1f(tessprog->getUniform("time"), time);
+		glUniform1f(tessprog->getUniform("angle"), tw);
+		glUniform1f(tessprog->getUniform("amplitude"), delayamplitude);
+		//glUniform1f(tessprog->getUniform("time"), time);
 
-		cube->draw(tessprog, false);
+		plane->draw(tessprog, false);
 		tessprog->unbind();
+
+		/************** Side Speakers *****************/
+		sideprog->bind();
+
+		glUniformMatrix4fv(sideprog->getUniform("P"), 1, GL_FALSE, &P[0][0]);
+		glUniformMatrix4fv(sideprog->getUniform("V"), 1, GL_FALSE, &V[0][0]);
+		glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+		glUniform1f(sideprog->getUniform("amplitude"), delayamplitude);
+		glUniform1f(sideprog->getUniform("freq"), pos);
+		glUniform1f(sideprog->getUniform("time"), time);
+		glUniform1f(sideprog->getUniform("amplitude"), delayamplitude);
+
+		// variables
+		static float ab = 0.0;
+		float r = 20.0;
+
+		float x = r * sin(ab);
+		float y = r * cos(ab);
+
+		// transformations 
+		//mat4 leftTrans = glm::translate(glm::mat4(1.0f), glm::vec3(-20.0f, 0.0f, -50.0));
+		//mat4 rightTrans = glm::translate(glm::mat4(1.0f), glm::vec3(20.0f, 0.0f, -50.0));
+		mat4 leftTrans = glm::translate(glm::mat4(1.0f), glm::vec3(-x, -y, -50.0));
+		mat4 rightTrans = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, -50.0));
+		float lw = pos, rw = -pos;
+		SpinCW = rotate(mat4(1.0), lw, vec3(0, 1, 0));
+		mat4 SpinCCW = rotate(mat4(1.0), rw, vec3(0, 1, 0));
+		Side = translate(mat4(1.0), vec3(0.0, pos, 0.0));
+		Scale = scale(mat4(1.0), vec3(2.0 + pos));
+
+		if (lSpeaker && rSpeaker) {
+			Scale = scale(mat4(1.0), vec3(delayamplitude/2.0));
+			ab += 0.01 * abs(freq);
+		}
+
+		cout << "lSpeaker: " << lSpeaker << "  rSPeaker: " << rSpeaker << endl;
+		// draw left speaker
+		if (lSpeaker) {
+			M = leftTrans * Side * SpinCW * Scale;
+			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+			cube->draw(sideprog, false);
+
+			x = r * sin(ab + 45); y = r * cos(ab + 45);
+			leftTrans = glm::translate(glm::mat4(1.0f), glm::vec3(-x, -y, -50.0));
+			M = leftTrans * Side * SpinCCW * Scale;
+			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+			cube->draw(sideprog, false);
+
+			x = r * sin(ab - 45); y = r * cos(ab - 45);
+			leftTrans = glm::translate(glm::mat4(1.0f), glm::vec3(-x, -y, -50.0));
+			M = leftTrans * Side * SpinCCW * Scale;
+			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+			cube->draw(sideprog, false);
+		}
+		else {
+			M = leftTrans * Side * Scale;
+			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+			cube->draw(sideprog, false);
+		}
+
+		// draw right speaker
+		if (rSpeaker) {
+			M = rightTrans * Side * SpinCCW * Scale;
+			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+			cube->draw(sideprog, false);
+
+			x = r * sin(ab + 45); y = r * cos(ab + 45);
+			rightTrans = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, -50.0));
+			M = rightTrans * Side * SpinCW * Scale;
+			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+			cube->draw(sideprog, false);
+
+			x = r * sin(ab - 45); y = r * cos(ab - 45);
+			rightTrans = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, -50.0));
+			M = rightTrans * Side * SpinCW * Scale;
+			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+			cube->draw(sideprog, false);
+		}
+		else {
+			M = rightTrans * Side * Scale;
+			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+			cube->draw(sideprog, false);
+		}
 		
 
+		sideprog->unbind();
 	
 
 		glBindVertexArray(0);
