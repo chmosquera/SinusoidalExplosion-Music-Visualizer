@@ -276,13 +276,13 @@ public:
 		if (key == GLFW_KEY_Z && action == GLFW_RELEASE)mycam.z = 0;
 		if (key == GLFW_KEY_C && action == GLFW_PRESS)mycam.c = 1;
 		if (key == GLFW_KEY_C && action == GLFW_RELEASE)mycam.c = 0;
-		if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE)
-		{
-			if (renderstate == 1)
-				renderstate = 2;
-			else
-				renderstate = 1;
-		}
+		//if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE)
+		//{
+		//	if (renderstate == 1)
+		//		renderstate = 2;
+		//	else
+		//		renderstate = 1;
+		//}
 		if (key == GLFW_KEY_RIGHT_SHIFT && action == GLFW_PRESS) rSpeaker = 1;
 		if (key == GLFW_KEY_RIGHT_SHIFT && action == GLFW_RELEASE) rSpeaker = 0;
 		if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS) lSpeaker = 1;
@@ -639,9 +639,6 @@ public:
 		objprog->addUniform("M");
 		objprog->addAttribute("vertPos");
 		objprog->addAttribute("vertCol");
-		//objprog->addAttribute("vertTex");
-		//objprog->addUniform("camoff");
-		objprog->addUniform("camPos");
 		objprog->addUniform("amplitude");
 		objprog->addUniform("freq");
 		objprog->addUniform("time");
@@ -658,9 +655,6 @@ public:
 		tessprog->addUniform("M");
 		tessprog->addAttribute("vertPos");
 		tessprog->addAttribute("vertCol");
-		//tessprog->addAttribute("vertTex");
-		//tessprog->addUniform("camoff");
-		//tessprog->addUniform("camPos");
 		tessprog->addUniform("amplitude");
 		tessprog->addUniform("freq");
 		tessprog->addUniform("time");
@@ -676,9 +670,6 @@ public:
 		sideprog->addUniform("M");
 		sideprog->addAttribute("vertPos");
 		sideprog->addAttribute("vertCol");
-		//sideprog->addAttribute("vertTex");
-		//sideprog->addUniform("camoff");
-		//sideprog->addUniform("camPos");
 		sideprog->addUniform("amplitude");
 		sideprog->addUniform("freq");
 		sideprog->addUniform("time");
@@ -715,102 +706,6 @@ public:
 		V = mycam.process(frametime);
 		M = glm::mat4(1);
 		P = glm::perspective((float)(3.14159 / 4.), (float)((float)width/ (float)height), 0.01f, 100000.0f); 
-
-		//animation with the model matrix:
-		float trans = 0;
-		float skyAngle = 0.6;
-		glm::mat4 RotateY = glm::rotate(glm::mat4(1.0f), skyAngle, glm::vec3(0.0f, 1.0f, 0.0f));
-		float angle = 3.1415926/2.0;
-		glm::mat4 RotateX = glm::rotate(glm::mat4(1.0f), angle, glm::vec3(1.0f, 0.0f, 0.0f));
-		glm::mat4 TransZ = glm::translate(glm::mat4(1.0f), -mycam.pos);
-		glm::mat4 S = glm::scale(glm::mat4(1.0f), glm::vec3(0.8f, 0.8f, 0.8f));
-
-		M =  TransZ *RotateY * RotateX * S;
-
-		// Draw sky sphere
-		skyprog->bind();
-		glUniformMatrix4fv(prog->getUniform("P"), 1, GL_FALSE, &P[0][0]);				// why are we sending to prog?
-		glUniformMatrix4fv(prog->getUniform("V"), 1, GL_FALSE, &V[0][0]);
-		glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
-
-		glActiveTexture(GL_TEXTURE0);
-		if(renderstate==1) glBindTexture(GL_TEXTURE_2D, Texture);
-		else if (renderstate == 2) glBindTexture(GL_TEXTURE_2D, Texture2);
-		
-		glDisable(GL_DEPTH_TEST);
-		sky_sphere->draw(skyprog,FALSE);
-		glEnable(GL_DEPTH_TEST);
-
-			heightshader->bind();
-			//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			glm::mat4 TransY = glm::translate(glm::mat4(1.0f), glm::vec3(-500.0f, -9.0f, -500));
-			M = TransY;
-			glUniformMatrix4fv(heightshader->getUniform("M"), 1, GL_FALSE, &M[0][0]);
-			glUniformMatrix4fv(heightshader->getUniform("P"), 1, GL_FALSE, &P[0][0]);
-			glUniformMatrix4fv(heightshader->getUniform("V"), 1, GL_FALSE, &V[0][0]);
-
-
-			vec3 offset = mycam.pos;
-			offset.y = 0;
-			offset.x = (int)offset.x;
-			offset.z = (int)offset.z;
-			offset = vec3(0, 0, 0);
-			vec3 bg = vec3(254. / 255., 225. / 255., 168. / 255.);
-			bg = vec3(0.0);
-			//if (renderstate == 2)
-				//bg = vec3(49. / 255., 88. / 255., 114. / 255.);
-				
-			glUniform3fv(heightshader->getUniform("camoff"), 1, &offset[0]);
-			glUniform3fv(heightshader->getUniform("campos"), 1, &mycam.pos[0]);
-			glUniform3fv(heightshader->getUniform("bgcolor"), 1, &bg[0]);
-			glUniform1i(heightshader->getUniform("renderstate"), renderstate);
-
-			glBindVertexArray(VertexArrayID);
-			glActiveTexture(GL_TEXTURE0);
-			//glBindTexture(GL_TEXTURE_2D, HeightTex);
-			glBindTexture(GL_TEXTURE_2D, AudioTex);
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, HeightTex);
-		
-			//glDrawArrays(GL_TRIANGLES, 0, MESHSIZE*MESHSIZE * 6);			
-			heightshader->unbind();
-
-		
-		if (renderstate == 2)
-		{
-			linesshader->bind();
-			//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			glm::mat4 TransY = glm::translate(glm::mat4(1.0f), glm::vec3(-500.0f, -9.0f+0.2, -500));
-			M = TransY;
-			glUniformMatrix4fv(linesshader->getUniform("M"), 1, GL_FALSE, &M[0][0]);
-			glUniformMatrix4fv(linesshader->getUniform("P"), 1, GL_FALSE, &P[0][0]);
-			glUniformMatrix4fv(linesshader->getUniform("V"), 1, GL_FALSE, &V[0][0]);
-
-			vec3 offset = mycam.pos;
-			offset.y = 0;
-			offset.x = (int)offset.x;
-			offset.z = (int)offset.z;
-			offset = vec3(0, 0, 0);
-			vec3 bg = vec3(254. / 255., 225. / 255., 168. / 255.);
-			bg = vec3(0.0);
-			//if (renderstate == 2)
-				//bg = vec3(49. / 255., 88. / 255., 114. / 255.);
-			glUniform3fv(linesshader->getUniform("camoff"), 1, &offset[0]);
-			glUniform3fv(linesshader->getUniform("campos"), 1, &mycam.pos[0]);
-			glUniform3fv(linesshader->getUniform("bgcolor"), 1, &bg[0]);
-
-			glBindVertexArray(VertexArrayID);
-			glActiveTexture(GL_TEXTURE0);
-
-			//glBindTexture(GL_TEXTURE_2D, HeightTex);
-			glBindTexture(GL_TEXTURE_2D, AudioTex);
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, HeightTex);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferIDBox);
-			//glDrawElements(GL_LINES, MESHSIZE*MESHSIZE * 8, GL_UNSIGNED_INT, (void*)0);
-			//glDrawArrays(GL_TRIANGLES, 0, MESHSIZE*MESHSIZE * 6);
-			linesshader->unbind();
-		}
 
 		/*******************************************/
 		/*************** EXPLOSION *****************/
@@ -880,8 +775,6 @@ public:
 		glUniformMatrix4fv(objprog->getUniform("P"), 1, GL_FALSE, &P[0][0]);
 		glUniformMatrix4fv(objprog->getUniform("V"), 1, GL_FALSE, &V[0][0]);
 		glUniformMatrix4fv(objprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
-		glUniform3fv(objprog->getUniform("camoff"), 1, &offset[0]);
-		glUniform3fv(objprog->getUniform("campos"), 1, &mycam.pos[0]);
 		glUniform1f(objprog->getUniform("amplitude"), delayamplitude);
 		glUniform1f(objprog->getUniform("freq"), pos);
 		glUniform1f(objprog->getUniform("time"), time);
