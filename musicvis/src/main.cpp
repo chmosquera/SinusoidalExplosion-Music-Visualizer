@@ -826,8 +826,6 @@ public:
 		float y = r * cos(ab);
 
 		// transformations 
-		//mat4 leftTrans = glm::translate(glm::mat4(1.0f), glm::vec3(-20.0f, 0.0f, -50.0));
-		//mat4 rightTrans = glm::translate(glm::mat4(1.0f), glm::vec3(20.0f, 0.0f, -50.0));
 		mat4 leftTrans = glm::translate(glm::mat4(1.0f), glm::vec3(-x, -y, -50.0));
 		mat4 rightTrans = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, -50.0));
 		float lw = pos, rw = -pos;
@@ -835,6 +833,8 @@ public:
 		mat4 SpinCCW = rotate(mat4(1.0), rw, vec3(0, 1, 0));
 		Side = translate(mat4(1.0), vec3(0.0, pos, 0.0));
 		Scale = scale(mat4(1.0), vec3(2.0 + pos));
+		float ia = 3 * 3.14/2.0;
+		mat4 initRotate = rotate(mat4(1.0f), ia, vec3(0,0,1));
 
 		if (lSpeaker && rSpeaker) {
 			Scale = scale(mat4(1.0), vec3(delayamplitude/2.0));
@@ -844,48 +844,48 @@ public:
 		cout << "lSpeaker: " << lSpeaker << "  rSPeaker: " << rSpeaker << endl;
 		// draw left speaker
 		if (lSpeaker) {
-			M = leftTrans * Side * SpinCW * Scale;
+			M = initRotate * leftTrans * Side * SpinCW * Scale;
 			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 			cube->draw(sideprog, false);
 
 			x = r * sin(ab + 45); y = r * cos(ab + 45);
 			leftTrans = glm::translate(glm::mat4(1.0f), glm::vec3(-x, -y, -50.0));
-			M = leftTrans * Side * SpinCCW * Scale;
+			M = initRotate * leftTrans * Side * SpinCCW * Scale;
 			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 			cube->draw(sideprog, false);
 
 			x = r * sin(ab - 45); y = r * cos(ab - 45);
 			leftTrans = glm::translate(glm::mat4(1.0f), glm::vec3(-x, -y, -50.0));
-			M = leftTrans * Side * SpinCCW * Scale;
+			M = initRotate * leftTrans * Side * SpinCCW * Scale;
 			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 			cube->draw(sideprog, false);
 		}
 		else {
-			M = leftTrans * Side * Scale;
+			M = initRotate * leftTrans * Side * Scale;
 			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 			cube->draw(sideprog, false);
 		}
 
 		// draw right speaker
 		if (rSpeaker) {
-			M = rightTrans * Side * SpinCCW * Scale;
+			M = initRotate * rightTrans * Side * SpinCCW * Scale;
 			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 			cube->draw(sideprog, false);
 
 			x = r * sin(ab + 45); y = r * cos(ab + 45);
 			rightTrans = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, -50.0));
-			M = rightTrans * Side * SpinCW * Scale;
+			M = initRotate * rightTrans * Side * SpinCW * Scale;
 			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 			cube->draw(sideprog, false);
 
 			x = r * sin(ab - 45); y = r * cos(ab - 45);
 			rightTrans = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, -50.0));
-			M = rightTrans * Side * SpinCW * Scale;
+			M = initRotate * rightTrans * Side * SpinCW * Scale;
 			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 			cube->draw(sideprog, false);
 		}
 		else {
-			M = rightTrans * Side * Scale;
+			M = initRotate * rightTrans * Side * Scale;
 			glUniformMatrix4fv(sideprog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
 			cube->draw(sideprog, false);
 		}
