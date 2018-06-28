@@ -1,0 +1,12 @@
+Name: Chanelle Mosquera
+Course: CSC 400
+Project: MusicVisualizer_SinusoidalExplosion
+
+/* Summary */
+The amplitude and frequency of the music affects three portions of the program:
+1. The main focus - the center ball with exploding faces. 
+2. The side boxes
+3. The background
+
+/* Controls */
+Right Shift, Left Shift, and Both - activate the side boxes
